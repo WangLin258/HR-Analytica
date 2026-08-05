@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Runtime data
+hr_analytica.db
+streamlit_log.txt
+streamlit_err.txt
+app_errors.log
+
+# Temp patch/repair scripts
+_fix*.py
+_patch*.py
+_repair*.py
+_gen*.py
+
+# OS
+.DS_Store
+Thumbs.db
