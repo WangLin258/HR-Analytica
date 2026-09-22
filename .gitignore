@@ -7,9 +7,12 @@ venv/
 
 # Runtime data
 hr_analytica.db
+*.db
 streamlit_log.txt
 streamlit_err.txt
 app_errors.log
+api.log
+*.log
 
 # Temp patch/repair scripts
 _fix*.py
@@ -24,6 +27,20 @@ test3.pdf
 启动说明.md
 start_hr_assistant.bat
 start_hr_assistant.ps1
+
+# PyInstaller / Streamlit build output
+build/
+dist/
+hr_analytica_run.log
+sidecar-test-data*/
+exe_out.log
+exe_err.log
+phase1_*.log
+
+# Electron
+desktop/node_modules/
+desktop/dist/
+desktop-dist/
 
 # OS
 .DS_Store

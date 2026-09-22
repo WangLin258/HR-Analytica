@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>HR Analytica Desktop</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark">HR</span>
+        <div>
+          <strong>HR Analytica</strong>
+          <small>Desktop Preview</small>
+        </div>
+      </div>
+      <div id="status" class="status status-idle">正在连接本地服务...</div>
+    </header>
+
+    <main class="layout">
+      <section class="panel upload-panel">
+        <div>
+          <p class="eyebrow">第一阶段验证</p>
+          <h1>薪酬分析</h1>
+          <p class="muted">
+            上传 CSV 或 Excel，验证桌面端 → 本地 FastAPI → SQLite 的最短链路。
+          </p>
+        </div>
+
+        <label id="dropZone" class="drop-zone" for="fileInput">
+          <input
+            id="fileInput"
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            hidden
+          />
+          <strong>拖拽文件到这里</strong>
+          <span>或点击选择文件</span>
+          <small id="fileName">尚未选择文件</small>
+        </label>
+
+        <div class="actions">
+          <button id="analyzeButton" type="button" disabled>开始分析</button>
+          <button id="historyButton" type="button" class="secondary">
+            历史记录
+          </button>
+        </div>
+
+        <div class="api-meta">
+          <span>本地 API</span>
+          <code id="apiBase">http://127.0.0.1</code>
+        </div>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">分析结果</p>
+            <h2>薪酬统计与诊断</h2>
+          </div>
+          <span id="historyId" class="pill hidden"></span>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          选择文件后点击“开始分析”
+        </div>
+
+        <div id="resultContent" class="hidden">
+          <div id="metrics" class="metrics"></div>
+          <h3>分组统计</h3>
+          <div id="statsTable" class="table-wrap"></div>
+          <h3>薪酬渗透率</h3>
+          <div id="penetrationTable" class="table-wrap"></div>
+          <h3>诊断摘要</h3>
+          <div id="summary" class="report"></div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="historyDialog" class="history-dialog">
+      <div class="dialog-header">
+        <strong>历史分析记录</strong>
+        <button id="closeHistoryButton" type="button" class="icon-button">
+          关闭
+        </button>
+      </div>
+      <div id="historyContent" class="table-wrap"></div>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

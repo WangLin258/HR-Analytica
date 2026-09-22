@@ -10,7 +10,7 @@ else:
     _BASE_DIR = Path(__file__).resolve().parent
 
 BASE_DIR = Path(os.environ.get("HR_ANALYTICA_HOME") or _BASE_DIR)
-DB_PATH = str(BASE_DIR / "hr_analytica.db")
+DB_PATH = str(BASE_DIR / "hr_data.db")
 APP_PORT = 8501
 LOG_FILE = str(BASE_DIR / "app_errors.log")
 

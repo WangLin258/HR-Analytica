@@ -1,0 +1,56 @@
+{
+  "name": "hr-analytica-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "productName": "HR Analytica",
+  "author": "王林",
+  "description": "HR Analytica desktop application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win dir --publish never",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.hranalytica.desktop",
+    "productName": "HR Analytica",
+    "artifactName": "HR-Analytica-Setup-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "../desktop-dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/HR_Analytica_Backend",
+        "to": "backend"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HR Analytica"
+    }
+  }
+}

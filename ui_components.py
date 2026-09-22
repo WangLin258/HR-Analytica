@@ -26,11 +26,12 @@ from analysis_engine import (
 )
 
 from analysis_engine import ENCODINGS
+from config import BASE_DIR
 
 
 def load_css() -> None:
     """Load external style.css."""
-    css_path = Path(__file__).parent / "style.css"
+    css_path = BASE_DIR / "style.css"
     if css_path.exists():
         st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
@@ -343,7 +344,7 @@ def _render_upload_and_filter(key: str, title: str) -> Optional[pd.DataFrame]:
     if not up:
         st.info("请上传CSV或Excel文件")
         col1, col2 = st.columns(2)
-        bp = Path(__file__).parent
+        bp = BASE_DIR
         if (bp / "薪酬分析样例.csv").exists():
             with open(bp / "薪酬分析样例.csv", "rb") as f:
                 col1.download_button(
@@ -797,7 +798,7 @@ def render_recruit_page() -> None:
         else:
             st.info("请上传招聘数据或下载示例文件")
             col1, col2 = st.columns(2)
-            bp = Path(__file__).parent
+            bp = BASE_DIR
             if (bp / "招聘分析样例.csv").exists():
                 with open(bp / "招聘分析样例.csv", "rb") as f:
                     col1.download_button(

@@ -14,7 +14,7 @@ from fpdf import FPDF
 import plotly.express as px
 import plotly.graph_objects as go
 
-from config import CONFIG, DB_PATH, BASE_DIR
+from .config import CONFIG, DB_PATH, BASE_DIR
 ENCODINGS = ["utf-8", "utf-8-sig", "gbk", "gb2312"]
 CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#F97316"]
 
