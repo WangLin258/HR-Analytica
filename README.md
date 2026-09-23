@@ -85,7 +85,7 @@ npm run dist
 输出：
 
 ```text
-desktop-dist/HR-Analytica-Setup-0.1.0-x64.exe
+desktop-dist/HR-Analytica-Setup-0.2.0-x64.exe
 ```
 
 ## 桌面版运行数据

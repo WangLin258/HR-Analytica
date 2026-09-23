@@ -2,35 +2,22 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, copy_metadata
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 
 ROOT = Path.cwd()
 
 datas = []
 binaries = []
-hiddenimports = []
-
-for package in (
-    "fastapi",
-    "starlette",
-    "uvicorn",
-    "pydantic",
-    "anyio",
+hiddenimports = [
     "multipart",
-    "pandas",
-    "numpy",
-    "matplotlib",
-    "openpyxl",
-    "fpdf",
-    "plotly",
-    "requests",
-):
+    "multipart.multipart",
+    "multipart.decoders",
+]
+
+for package in ("uvicorn", "openpyxl", "xlrd"):
     try:
-        package_datas, package_binaries, package_hidden = collect_all(package)
-        datas += package_datas
-        binaries += package_binaries
-        hiddenimports += package_hidden
+        hiddenimports += collect_submodules(package)
     except Exception:
         pass
 
@@ -41,16 +28,18 @@ for package in (
     "pydantic",
     "pandas",
     "numpy",
-    "matplotlib",
     "openpyxl",
-    "fpdf",
-    "plotly",
-    "requests",
+    "xlrd",
 ):
     try:
         datas += copy_metadata(package)
     except Exception:
         pass
+
+try:
+    datas += copy_metadata("python-multipart")
+except Exception:
+    pass
 
 
 a = Analysis(
@@ -63,21 +52,26 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
+        "matplotlib",
+        "plotly",
+        "pyarrow",
+        "fpdf",
+        "PIL",
+        "lxml",
+        "tkinter",
         "pytest",
         "_pytest",
-        "tkinter",
         "IPython",
         "jupyter",
         "notebook",
         "nbformat",
         "nbconvert",
-        "sphinx",
-        "docutils",
-        "pydoc_data",
-        "matplotlib.tests",
-        "pandas.tests",
-        "numpy.tests",
-        "plotly.tests",
+        "scipy",
+        "sklearn",
+        "numba",
+        "sqlalchemy",
+        "boto3",
+        "websockets",
     ],
     noarchive=False,
     optimize=0,
