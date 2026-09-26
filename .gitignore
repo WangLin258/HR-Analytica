@@ -21,7 +21,6 @@ _repair*.py
 _gen*.py
 
 # Local-only files, not required by Streamlit Cloud
-tests/
 tools/
 test3.pdf
 启动说明.md

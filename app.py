@@ -3,6 +3,7 @@
 
 import streamlit as st
 
+from auth import require_access
 from analysis_engine import CONFIG, init_db, cleanup_old_history, load_user_pref
 from ui_components import (
     load_css,

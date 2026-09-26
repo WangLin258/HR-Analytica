@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Lightweight salary analysis service for the desktop backend.
+"""Pure-pandas salary analysis core shared by the full engine and desktop API.
 
 This module intentionally avoids Plotly, Matplotlib and PyArrow so the
 desktop sidecar stays small and starts quickly.
@@ -204,57 +204,77 @@ def check_internal_fairness(df: pd.DataFrame, value_col: str, performance_col: O
     return correlation, (performance_col, underpaid, len(top))
 
 
-def gen_summary(stats: pd.DataFrame, df: pd.DataFrame, group_col: Union[str, List[str]], value_col: str) -> str:
-    groups = " + ".join(group_col) if isinstance(group_col, list) else str(group_col)
-    total_groups = len(stats)
-    values = df[value_col].dropna()
-    if values.empty:
-        return "清洗后没有可用的薪资数据。"
+
+
+
+def gen_summary(sdf: pd.DataFrame, df: pd.DataFrame, gc: Union[str, List[str]], vc: str) -> str:
+    """Generate plain-language summary."""
+    gl = " + ".join(gc) if isinstance(gc, list) else gc
+    lines = [f"按 **{gl}** 分组分析 **{vc}**：", ""]
+    total_groups = len(sdf)
+    ov = df[vc]
     if total_groups > 50:
-        return (
-            f"按 **{groups}** 分组分析 **{value_col}**：\n\n"
-            f"- 检测到分组数量过多（{total_groups}组），建议选择部门、岗位等更高层级维度。\n"
-            f"- 总体均值 {values.mean():.2f}，中位数 {values.median():.2f}。"
-        )
-
-    lines = [f"按 **{groups}** 分组分析 **{value_col}**：", ""]
-    top = stats.head(5)
-    for name, row in top.iterrows():
-        label = str(name) if not isinstance(name, tuple) else " | ".join(str(item) for item in name)
-        lines.append(f"- **{label}**：均值 {row['mean']:.2f}，中位数 {row['median']:.2f}，样本数 {int(row['count'])}")
+        return (f"按 **{gl}** 分组分析 **{vc}**：\n\n"
+                f"- 检测到分组数量过多（{total_groups}组），建议选择更高层级的分组维度。\n"
+                f"- 总体均值 {ov.mean():.2f}，中位数 {ov.median():.2f}。")
     if total_groups > 10:
-        lines.append(f"- 共检测到 {total_groups} 个分组，报告仅展示薪资最高的前 5 个分组。")
-    if total_groups > 1:
-        highest = stats.iloc[0]
-        lowest = stats.iloc[-1]
-        high_name = str(stats.index[0]) if not isinstance(stats.index[0], tuple) else " | ".join(map(str, stats.index[0]))
-        low_name = str(stats.index[-1]) if not isinstance(stats.index[-1], tuple) else " | ".join(map(str, stats.index[-1]))
-        lines.append(f"- **{high_name}** 均值最高（{highest['mean']:.2f}），**{low_name}** 均值最低（{lowest['mean']:.2f}）。")
-    lines.append(f"- 总体均值 {values.mean():.1f}，中位数 {values.median():.1f}，范围 {values.min():.1f}~{values.max():.1f}。")
+        lines = [f"按 **{gl}** 分组分析 **{vc}**：", "",
+                 f"- 检测到 {total_groups} 个分组，报告仅展示关键样本。建议选择更聚合的分组维度（如部门、岗位）进行深度分析。", ""]
+        top = sdf.head(5)
+        for name, row in top.iterrows():
+            nm = str(name) if not isinstance(name, tuple) else " | ".join(str(x) for x in name)
+            lines.append(f"- **{nm}**：均值 {row['mean']:.2f}")
+        rest = sdf.iloc[5:]
+        if len(rest):
+            rest_mean = rest["mean"].mean()
+            names = [str(n) if not isinstance(n, tuple) else " | ".join(str(x) for x in n) for n in rest.index[:3]]
+            lines.append(f"- 其余 {len(rest)} 组（包含 {', '.join(names)} 等）的平均值为 {rest_mean:.2f}。")
+        lines.append(f"- 总体均值 {ov.mean():.2f}，中位数 {ov.median():.2f}。")
+        return "\n\n".join(lines)
+
+    best, worst = sdf.index[0], sdf.index[-1]
+    diff = sdf.iloc[0]["mean"] - sdf.iloc[-1]["mean"]
+    bl = str(best) if not isinstance(best, tuple) else " | ".join(str(v) for v in best)
+    wl = str(worst) if not isinstance(worst, tuple) else " | ".join(str(v) for v in worst)
+    lines.append(f"- **{bl}** 均值最高 ({sdf.iloc[0]['mean']:.2f})，**{wl}** 最低 ({sdf.iloc[-1]['mean']:.2f})，差距 {diff:.2f}。")
+    if "std" in sdf.columns and sdf["std"].notna().any():
+        std_ok = sdf["std"].dropna()
+        cs = std_ok.idxmin()
+        vr = std_ok.idxmax()
+        csl = str(cs) if not isinstance(cs, tuple) else " | ".join(str(v) for v in cs)
+        vrl = str(vr) if not isinstance(vr, tuple) else " | ".join(str(v) for v in vr)
+        lines.append(f"- **{csl}** 内部差异最小（标准差 {sdf.loc[cs, 'std']:.2f}），团队最整齐。")
+        lines.append(f"- **{vrl}** 差异最大（标准差 {sdf.loc[vr, 'std']:.2f}），成员间分化明显。")
+    ov = df[vc]
+    lines.append(f"- 全范围 {ov.min():.1f}~{ov.max():.1f}，跨度 {ov.max() - ov.min():.1f}。")
+    lines.append(f"- 总体均值 {ov.mean():.1f}，中位数 {ov.median():.1f}。")
+    if ov.mean() > ov.median():
+        lines.append("- 均值高于中位数，少数高分拉高整体水平。")
+    elif ov.mean() < ov.median():
+        lines.append("- 均值低于中位数，数据集中在较高区间。")
+    else:
+        lines.append("- 均值与中位数接近，分布较对称。")
     return "\n\n".join(lines)
 
-
-def gen_salary_advice(
-    penetration: Optional[pd.DataFrame],
-    correlation: Optional[float],
-    fairness_info: Optional[tuple],
-    value_col: str,
-) -> str:
+def gen_salary_advice(pen_df: Optional[pd.DataFrame], fair_r: Optional[float],
+                      fair_info: Optional[Tuple], vc: str) -> str:
+    """Generate professional compensation advice."""
     lines = []
-    if penetration is not None and "薪酬渗透率" in penetration.columns:
-        high = penetration[penetration["薪酬渗透率"] > 110]
-        low = penetration[penetration["薪酬渗透率"] < 90]
+    if pen_df is not None:
+        high = pen_df[pen_df["薪酬渗透率"] > 110]
+        low = pen_df[pen_df["薪酬渗透率"] < 90]
         if not high.empty:
-            names = "、".join(str(index) for index in high.index.tolist())
-            lines.append(f"- **{names} 薪酬渗透率偏高**（最高 {high['薪酬渗透率'].max():.0f}%），建议关注人工成本率。")
+            names = "、".join(str(x) for x in high.index.tolist())
+            lines.append(f"- **{names} 薪酬渗透率偏高**（{high['薪酬渗透率'].max():.0f}%），竞争力充足但需关注人工成本率。")
         if not low.empty:
-            names = "、".join(str(index) for index in low.index.tolist())
-            lines.append(f"- **{names} 薪酬渗透率偏低**（最低 {low['薪酬渗透率'].min():.0f}%），建议结合离职率审视留任风险。")
-    if correlation is not None:
-        if correlation < 0.2:
-            lines.append(f"- **{value_col} 与绩效评分相关性较弱（r={correlation:.2f}）**，建议审视绩效调薪机制。")
-        elif correlation < 0.5:
-            lines.append(f"- **{value_col} 与绩效评分呈中等相关（r={correlation:.2f}）**，仍存在优化空间。")
+            names = "、".join(str(x) for x in low.index.tolist())
+            lines.append(f"- **{names} 薪酬渗透率偏低**（{low['薪酬渗透率'].min():.0f}%），可能存在留任风险，建议结合离职率审视。")
+    if fair_r is not None:
+        if fair_r < 0.2:
+            lines.append(f"- **{vc} 与绩效评分相关性较弱（r={fair_r:.2f}）**，薪酬对高绩效激励不足，建议审视绩效调薪机制。")
+        elif fair_r < 0.5:
+            lines.append(f"- **{vc} 与绩效评分呈中等相关（r={fair_r:.2f}）**，基本符合按绩付酬原则，仍有优化空间。")
         else:
-            lines.append(f"- **{value_col} 与绩效评分相关性良好（r={correlation:.2f}）**，薪酬与绩效激励总体一致。")
-    return "\n\n".join(lines)
+            lines.append(f"- **{vc} 与绩效评分相关性良好（r={fair_r:.2f}）**，薪酬与绩效激励总体一致。")
+    return "\n\n".join(lines) if lines else ""
+

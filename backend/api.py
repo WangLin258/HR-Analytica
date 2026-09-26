@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import API_LIMITS, BASE_DIR, DB_PATH
 from .database import ensure_database, load_recent_history, save_history
-from .salary_service import (
+from .salary_core import (
     basic_stats,
     calc_penetration,
     check_internal_fairness,

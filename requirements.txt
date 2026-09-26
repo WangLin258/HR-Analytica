@@ -16,3 +16,4 @@ requests>=2.31.0
 
 # Sample data generator (tools/)
 Faker>=20.0.0
+httpx2>=2.13.0

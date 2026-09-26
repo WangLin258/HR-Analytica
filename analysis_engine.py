@@ -15,7 +15,23 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from config import CONFIG, DB_PATH, BASE_DIR
-ENCODINGS = ["utf-8", "utf-8-sig", "gbk", "gb2312"]
+from backend.salary_core import (
+    ENCODINGS,
+    MONEY_KEYWORDS,
+    NON_MONEY_KEYWORDS,
+    PERFORMANCE_KEYWORDS,
+    read_file,
+    clean_data,
+    detect_column_types,
+    basic_stats,
+    gen_summary,
+    calc_penetration,
+    find_performance_columns,
+    check_internal_fairness,
+    gen_salary_advice,
+    _norm_col,
+    _looks_like_money,
+)
 CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#F97316"]
 
 LOG_FILE = str(BASE_DIR / "app_errors.log")
@@ -62,102 +78,14 @@ plt.rcParams.update({
 })
 
 
-def read_file(uploaded_file: Any, sheet: Optional[str] = None) -> Tuple[pd.DataFrame, str, list]:
-    """Read CSV or Excel file. Returns (df, source_description, sheet_names)."""
-    name = uploaded_file.name.lower()
-    if name.endswith(".csv"):
-        for enc in ENCODINGS:
-            try:
-                uploaded_file.seek(0)
-                return pd.read_csv(uploaded_file, encoding=enc), f"CSV ({enc})", []
-            except (UnicodeDecodeError, UnicodeError):
-                continue
-        raise ValueError("无法识别 CSV 编码")
-    elif name.endswith((".xlsx", ".xls")):
-        uploaded_file.seek(0)
-        xl = pd.ExcelFile(uploaded_file)
-        sh = sheet or xl.sheet_names[0]
-        df = pd.read_excel(xl, sheet_name=sh, engine="openpyxl" if name.endswith(".xlsx") else "xlrd")
-        return df, "Excel", xl.sheet_names
-    raise ValueError("不支持的文件格式")
 
 
-def clean_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, list, int, int]:
-    """Drop fully empty rows, coerce numeric columns, report duplicates."""
-    r0 = len(df)
-    df = df.dropna(how="all").reset_index(drop=True)
-    r1 = len(df)
-    for c in df.columns:
-        if df[c].dtype == object:
-            vals = pd.to_numeric(df[c], errors="coerce")
-            if vals.notna().sum() > len(df) * CONFIG["numeric_threshold"]:
-                df[c] = vals
-    dup = df.duplicated().sum()
-    report = [
-        f"原始 {r0} 行",
-        f"去除全空行后 {r1} 行" if r0 != r1 else "无全空行",
-        f"检测到 {dup} 行完全重复" if dup > 0 else "无重复行",
-    ]
-    return df, report, r0 - r1, dup
 
 
-def _parse_mixed_val(s: Any) -> Optional[float]:
-    """Extract numeric value from strings like '90分', '￥5000', '15000元'."""
-    if not isinstance(s, str):
-        return None
-    cleaned = re.sub(r"[，,\s]", "", s.strip())
-    m = re.search(r"[-]?\d+(?:\.\d+)?", cleaned)
-    return float(m.group()) if m else None
 
 
-def detect_column_types(df: pd.DataFrame) -> Tuple[list, list, list, dict, list]:
-    """Classify columns as numeric/date/text, with mixed-format support."""
-    cat, num, dates, types, idcols = [], [], [], {}, []
-    for c in df.columns:
-        col = df[c]
-        na = col.dropna()
-        if len(na) == 0:
-            cat.append(c)
-            types[c] = "text"
-            continue
-        if pd.api.types.is_numeric_dtype(col):
-            num.append(c)
-            types[c] = "numeric" if _looks_like_money(df[c], c) else "numeric_non_money"
-            continue
-        try_num = pd.to_numeric(col, errors="coerce")
-        if try_num.notna().sum() >= len(na) * CONFIG["numeric_threshold"]:
-            df[c] = try_num
-            num.append(c)
-            types[c] = "numeric" if _looks_like_money(df[c], c) else "numeric_non_money"
-            continue
-        try_date = pd.to_datetime(col, errors="coerce")
-        if try_date.notna().sum() >= len(na) * CONFIG["date_threshold"]:
-            dates.append(c)
-            types[c] = "date"
-            df[c] = try_date
-            continue
-        if pd.api.types.is_string_dtype(na) or pd.api.types.is_object_dtype(na):
-            parsed = na.apply(_parse_mixed_val)
-            if parsed.notna().sum() >= len(na) * CONFIG["numeric_threshold"]:
-                df[c] = parsed
-                num.append(c)
-                types[c] = "numeric" if _looks_like_money(df[c], c) else "numeric_non_money"
-                continue
-        cat.append(c)
-        types[c] = "text"
-        if col.nunique() == len(col):
-            idcols.append(c)
-    return cat, num, dates, types, idcols
 
 
-def basic_stats(df: pd.DataFrame, gc: Union[str, List[str]], vc: str) -> pd.DataFrame:
-    """Grouped statistics: mean/max/min/median/std/count."""
-    g = list(gc) if isinstance(gc, (list, tuple)) else [gc]
-    df = df.loc[:, ~df.columns.duplicated()]
-    for col in g:
-        if col in df.columns:
-            df[col] = df[col].map(lambda x: str(x) if not isinstance(x, str) else x)
-    return df.groupby(g)[vc].agg(["mean", "max", "min", "median", "std", "count"]).round(2).sort_values("mean", ascending=False)
 
 
 def fmt_val(x: Union[int, float]) -> str:
@@ -253,102 +181,20 @@ def plot_corr(df: pd.DataFrame, c1: str, c2: str):
     return fig, r
 
 
-def gen_summary(sdf: pd.DataFrame, df: pd.DataFrame, gc: Union[str, List[str]], vc: str) -> str:
-    """Generate plain-language summary."""
-    gl = " + ".join(gc) if isinstance(gc, list) else gc
-    lines = [f"按 **{gl}** 分组分析 **{vc}**：", ""]
-    total_groups = len(sdf)
-    ov = df[vc]
-    if total_groups > 50:
-        return (f"按 **{gl}** 分组分析 **{vc}**：\n\n"
-                f"- 检测到分组数量过多（{total_groups}组），建议选择更高层级的分组维度。\n"
-                f"- 总体均值 {ov.mean():.2f}，中位数 {ov.median():.2f}。")
-    if total_groups > 10:
-        lines = [f"按 **{gl}** 分组分析 **{vc}**：", "",
-                 f"- 检测到 {total_groups} 个分组，报告仅展示关键样本。建议选择更聚合的分组维度（如部门、岗位）进行深度分析。", ""]
-        top = sdf.head(5)
-        for name, row in top.iterrows():
-            nm = str(name) if not isinstance(name, tuple) else " | ".join(str(x) for x in name)
-            lines.append(f"- **{nm}**：均值 {row['mean']:.2f}")
-        rest = sdf.iloc[5:]
-        if len(rest):
-            rest_mean = rest["mean"].mean()
-            names = [str(n) if not isinstance(n, tuple) else " | ".join(str(x) for x in n) for n in rest.index[:3]]
-            lines.append(f"- 其余 {len(rest)} 组（包含 {', '.join(names)} 等）的平均值为 {rest_mean:.2f}。")
-        lines.append(f"- 总体均值 {ov.mean():.2f}，中位数 {ov.median():.2f}。")
-        return "\n\n".join(lines)
-
-    best, worst = sdf.index[0], sdf.index[-1]
-    diff = sdf.iloc[0]["mean"] - sdf.iloc[-1]["mean"]
-    bl = str(best) if not isinstance(best, tuple) else " | ".join(str(v) for v in best)
-    wl = str(worst) if not isinstance(worst, tuple) else " | ".join(str(v) for v in worst)
-    lines.append(f"- **{bl}** 均值最高 ({sdf.iloc[0]['mean']:.2f})，**{wl}** 最低 ({sdf.iloc[-1]['mean']:.2f})，差距 {diff:.2f}。")
-    if "std" in sdf.columns and sdf["std"].notna().any():
-        std_ok = sdf["std"].dropna()
-        cs = std_ok.idxmin()
-        vr = std_ok.idxmax()
-        csl = str(cs) if not isinstance(cs, tuple) else " | ".join(str(v) for v in cs)
-        vrl = str(vr) if not isinstance(vr, tuple) else " | ".join(str(v) for v in vr)
-        lines.append(f"- **{csl}** 内部差异最小（标准差 {sdf.loc[cs, 'std']:.2f}），团队最整齐。")
-        lines.append(f"- **{vrl}** 差异最大（标准差 {sdf.loc[vr, 'std']:.2f}），成员间分化明显。")
-    ov = df[vc]
-    lines.append(f"- 全范围 {ov.min():.1f}~{ov.max():.1f}，跨度 {ov.max() - ov.min():.1f}。")
-    lines.append(f"- 总体均值 {ov.mean():.1f}，中位数 {ov.median():.1f}。")
-    if ov.mean() > ov.median():
-        lines.append("- 均值高于中位数，少数高分拉高整体水平。")
-    elif ov.mean() < ov.median():
-        lines.append("- 均值低于中位数，数据集中在较高区间。")
-    else:
-        lines.append("- 均值与中位数接近，分布较对称。")
-    return "\n\n".join(lines)
 
 
-def calc_penetration(stats: pd.DataFrame, overall_mean: float) -> pd.DataFrame:
-    """Compensation penetration: group mean / overall mean * 100."""
-    if not overall_mean:
-        return stats
-    s = stats.copy()
-    s["薪酬渗透率"] = (s["mean"] / overall_mean * 100).round(1)
-    return s
 
 
-PERFORMANCE_KEYWORDS = [
-    "绩效", "评分", "考核分", "绩效等级", "KPI得分", "OKR评分", "评价分",
-    "业绩", "score", "rating", "performance",
-]
 COST_KEYWORDS = ["成本", "费用", "投入", "花费", "服务费", "猎头费", "cost", "expense", "spend"]
 CHANNEL_KEYWORDS = ["渠道", "来源", "渠道名称", "channel", "source"]
 TOTAL_COST_KEYWORDS = ["总成本", "成本", "费用", "total", "cost"]
 JOB_KEYWORDS = ["岗位", "职位", "job", "position", "title"]
 
 
-def _norm_col(name: Any) -> str:
-    return str(name).lower().replace(" ", "").replace("_", "").replace("-", "")
-
-MONEY_KEYWORDS = [
-    "薪", "工资", "薪资", "薪酬", "底薪", "salary", "pay", "wage", "income", "amount",
-]
-
-NON_MONEY_KEYWORDS = [
-    "司龄", "年龄", "工龄", "年", "月", "天", "次", "人", "数", "率", "分", "级",
-    "ID", "编号", "序号", "排名", "百分比",
-    "ratio", "rate", "age", "year", "month", "day", "count", "score", "level",
-]
 
 
-def _looks_like_money(series, name):
-    """Decide whether a numeric column should be displayed with a currency symbol."""
-    norm = _norm_col(name)
-    if any(kw.lower() in norm for kw in MONEY_KEYWORDS):
-        return True
-    if any(kw.lower() in norm for kw in NON_MONEY_KEYWORDS):
-        return False
-    vals = pd.to_numeric(series, errors="coerce").dropna()
-    if len(vals) == 0:
-        return False
-    mean_abs = float(vals.abs().mean())
-    has_decimals = bool(((vals % 1) != 0).any())
-    return mean_abs >= 1000 or (has_decimals and mean_abs >= 100)
+
+
 
 
 
@@ -382,55 +228,10 @@ def find_job_column(df: pd.DataFrame) -> Optional[str]:
     return None
 
 
-def find_performance_columns(df: pd.DataFrame) -> list:
-    """Find columns that look like performance/rating data."""
-    found = []
-    for c in df.columns:
-        s = str(c).lower().replace(" ", "").replace("_", "").replace("-", "")
-        if any(kw.lower() in s for kw in PERFORMANCE_KEYWORDS):
-            found.append(c)
-    return found
 
 
-def check_internal_fairness(df: pd.DataFrame, vc: str, perf_col: Optional[str] = None):
-    """Correlate salary with performance; warn if high performers are underpaid."""
-    if perf_col is None:
-        perf_cols = find_performance_columns(df)
-        if not perf_cols:
-            return None, None
-        perf_col = perf_cols[0]
-    pc = perf_col
-    sub = df[[vc, pc]].dropna()
-    if len(sub) < 5:
-        return None, None
-    r = sub[vc].corr(sub[pc])
-    thr = sub[pc].quantile(0.75)
-    top = sub[sub[pc] >= thr]
-    top_underpaid = (top[vc] < df[vc].median()).sum()
-    return r, (pc, top_underpaid, len(top))
 
 
-def gen_salary_advice(pen_df: Optional[pd.DataFrame], fair_r: Optional[float],
-                      fair_info: Optional[Tuple], vc: str) -> str:
-    """Generate professional compensation advice."""
-    lines = []
-    if pen_df is not None:
-        high = pen_df[pen_df["薪酬渗透率"] > 110]
-        low = pen_df[pen_df["薪酬渗透率"] < 90]
-        if not high.empty:
-            names = "、".join(str(x) for x in high.index.tolist())
-            lines.append(f"- **{names} 薪酬渗透率偏高**（{high['薪酬渗透率'].max():.0f}%），竞争力充足但需关注人工成本率。")
-        if not low.empty:
-            names = "、".join(str(x) for x in low.index.tolist())
-            lines.append(f"- **{names} 薪酬渗透率偏低**（{low['薪酬渗透率'].min():.0f}%），可能存在留任风险，建议结合离职率审视。")
-    if fair_r is not None:
-        if fair_r < 0.2:
-            lines.append(f"- **{vc} 与绩效评分相关性较弱（r={fair_r:.2f}）**，薪酬对高绩效激励不足，建议审视绩效调薪机制。")
-        elif fair_r < 0.5:
-            lines.append(f"- **{vc} 与绩效评分呈中等相关（r={fair_r:.2f}）**，基本符合按绩付酬原则，仍有优化空间。")
-        else:
-            lines.append(f"- **{vc} 与绩效评分相关性良好（r={fair_r:.2f}）**，薪酬与绩效激励总体一致。")
-    return "\n\n".join(lines) if lines else ""
 
 
 def recruit_funnel(df: pd.DataFrame):
