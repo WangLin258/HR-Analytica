@@ -19,6 +19,7 @@ from ui_components import (
 
 st.set_page_config(page_title="HR Analytica", layout="wide")
 load_css()
+require_access()
 try:
     init_db()
     cleanup_old_history()
