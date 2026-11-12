@@ -23,7 +23,7 @@ from analysis_engine import (
     find_job_column,
 )
 
-app = FastAPI(title="HR Analytica API", version="1.0.0")
+app = FastAPI(title="HR Analytica API", version="2.0.3")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost", "http://localhost:8501", "http://127.0.0.1", "http://127.0.0.1:8501"],

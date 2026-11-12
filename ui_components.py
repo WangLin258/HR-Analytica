@@ -192,7 +192,7 @@ def render_nav() -> None:
             elif "saved_logo" not in st.session_state:
                 st.session_state.saved_logo = load_user_pref("logo_b64", "")
         st.caption("HR Analytica · 数据分析平台")
-        st.caption("Version 1.0.0")
+        st.caption("Version 2.0.3")
 
 
 def render_footer() -> None:
@@ -270,21 +270,16 @@ def render_home() -> None:
 
     st.markdown('<div class="section-title">聚焦HR核心分析场景</div>', unsafe_allow_html=True)
     scenes = [
-        ("薪酬公平性分析", "上传薪酬数据，一键诊断各部门薪酬渗透率和内部公平性",
-         "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=60"),
-        ("招聘漏斗优化", "输入招聘各环节数据，自动计算渠道转化率和人均成本",
-         "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=600&q=60"),
-        ("一键专业报告", "自动生成带图表和诊断建议的PDF报告，直接用于工作汇报",
-         "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=60"),
+        ("薪酬公平性分析", "上传薪酬数据，一键诊断各部门薪酬渗透率和内部公平性", "薪"),
+        ("招聘漏斗优化", "输入招聘各环节数据，自动计算渠道转化率和人均成本", "招"),
+        ("一键专业报告", "自动生成带图表和诊断建议的PDF报告，直接用于工作汇报", "报"),
     ]
-    for i, (title, desc, img) in enumerate(scenes):
+    for i, (title, desc, visual) in enumerate(scenes):
         c1, c2 = st.columns([1, 1])
         left, right = (c1, c2) if i % 2 == 0 else (c2, c1)
         with left:
             st.markdown(
-                f'<div class="scene-img"><img src="{img}" alt="{title}" '
-                'style="width:100%;height:100%;object-fit:cover;border-radius:8px;'
-                'filter:grayscale(100%);opacity:0.9"></div>',
+                f'<div class="scene-visual scene-visual-{i + 1}"><span>{visual}</span></div>',
                 unsafe_allow_html=True,
             )
         with right:
@@ -293,7 +288,6 @@ def render_home() -> None:
                 f'<div class="scene-desc">{desc}</div></div>',
                 unsafe_allow_html=True,
             )
-
 
 
 def _plotly_bar(df, gc, vc):
@@ -336,8 +330,7 @@ def _render_upload_and_filter(key: str, title: str) -> Optional[pd.DataFrame]:
     st.markdown(f"#### {title}")
     st.markdown("上传文件并配置分析目标后即可自动生成报告。")
     st.markdown(
-        '<img class="banner-img" src="https://picsum.photos/id/180/1000/220?grayscale" '
-        'alt="数据分析场景">',
+        '<div class="banner-visual"><span>HR Analytica</span><small>让数据成为人力资源决策的依据</small></div>',
         unsafe_allow_html=True,
     )
     up = st.file_uploader("支持 CSV / Excel (.xlsx/.xls)", type=["csv", "xlsx", "xls"], key=f"{key}_up")
@@ -387,8 +380,8 @@ def _render_upload_and_filter(key: str, title: str) -> Optional[pd.DataFrame]:
             st.caption(f"总体评分：{q['grade']}（{q['score']:.2f}）")
             if q["grade"] in ("C", "D"):
                 st.warning("数据质量较低，分析结果仅供参考。")
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"数据质量报告生成失败：{e}")
         st.markdown(
             '<div style="font-size:1.1rem;font-weight:600;color:#1D2129;">列类型检测</div>',
             unsafe_allow_html=True,
@@ -455,7 +448,8 @@ def _render_config(key: str) -> None:
         default_gc = saved_gc or ac[:1]
         default_vc = saved_vc if saved_vc in nm else (nm[0] if nm else "")
         default_cc = saved_cc if saved_cc in ["不分析"] + nm else "不分析"
-    except Exception:
+    except Exception as e:
+        st.warning(f"读取上次分析配置失败，已使用默认值：{e}")
         default_gc = ac[:1]
         default_vc = nm[0] if nm else ""
         default_cc = "不分析"
@@ -686,7 +680,8 @@ def _render_results(key: str, title: str) -> None:
                                            key=f"{key}_dlx")
                     import os
                     try: os.unlink(xp)
-                    except Exception: pass
+                    except Exception as e:
+                        logger.warning("临时文件清理失败: %s", e, exc_info=True)
         with btn3:
             if st.button("导出 PDF", use_container_width=True, key=f"{key}_pdf"):
                 with st.spinner("生成PDF..."):
@@ -708,7 +703,8 @@ def _render_results(key: str, title: str) -> None:
                     finally:
                         if logo_path:
                             try: os.unlink(logo_path)
-                            except Exception: pass
+                            except Exception as e:
+                                logger.warning("临时文件清理失败: %s", e, exc_info=True)
                     with open(pp, "rb") as f:
                         st.download_button("下载", data=f.read(),
                                            file_name="report.pdf",
@@ -716,7 +712,8 @@ def _render_results(key: str, title: str) -> None:
                                            key=f"{key}_dlp")
                     import os
                     try: os.unlink(pp)
-                    except Exception: pass
+                    except Exception as e:
+                        logger.warning("临时文件清理失败: %s", e, exc_info=True)
 
 
 def render_analysis_page(key: str) -> None:
@@ -929,7 +926,8 @@ def render_report_page() -> None:
     try:
         init_db()
         history = load_recent_history(10)
-    except Exception:
+    except Exception as e:
+        st.warning(f"历史记录读取失败：{e}")
         history = []
     if not history:
         st.info("暂无历史记录，请先完成一次分析")
@@ -965,7 +963,8 @@ def render_report_page() -> None:
                                     key=f"rdx_{rec['id']}",
                                 )
                             try: os.unlink(xp)
-                            except Exception: pass
+                            except Exception as e:
+                                logger.warning("临时文件清理失败: %s", e, exc_info=True)
                 with c2:
                     if st.button("重新导出 PDF", key=f"rep_{rec['id']}"):
                         with st.spinner("生成PDF..."):
@@ -979,7 +978,8 @@ def render_report_page() -> None:
                                     key=f"rdp_{rec['id']}",
                                 )
                             try: os.unlink(pp)
-                            except Exception: pass
+                            except Exception as e:
+                                logger.warning("临时文件清理失败: %s", e, exc_info=True)
     st.markdown("---")
     if st.session_state.df is not None and st.session_state.last_stats is not None:
         st.markdown("### 导出当前分析")
@@ -997,7 +997,8 @@ def render_report_page() -> None:
                     with open(pp, "rb") as f:
                         st.download_button("PDF下载", data=f.read(), file_name="report.pdf", mime="application/pdf", key="dp")
                     try: os.unlink(pp)
-                    except Exception: pass
+                    except Exception as e:
+                        logger.warning("临时文件清理失败: %s", e, exc_info=True)
         with c2:
             if st.button("Excel", type="primary", use_container_width=True, key="ee"):
                 with st.spinner("生成Excel..."):
@@ -1005,6 +1006,7 @@ def render_report_page() -> None:
                     with open(xp, "rb") as f:
                         st.download_button("Excel下载", data=f.read(), file_name="data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dx")
                     try: os.unlink(xp)
-                    except Exception: pass
+                    except Exception as e:
+                        logger.warning("临时文件清理失败: %s", e, exc_info=True)
     else:
         st.info("请先完成分析")

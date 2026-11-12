@@ -201,3 +201,47 @@ div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { col
     .hero-title { font-size: 32px; }
     .banner-img { height: 120px; }
 }
+/* Offline-safe homepage visuals */
+.banner-visual {
+    min-height: 190px;
+    margin: 1rem 0 1.25rem;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #dff7ee 0%, #e8f1ff 55%, #fff4dd 100%);
+    border: 1px solid #d6e5df;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    color: #123b32;
+}
+.banner-visual span {
+    font-size: 2.15rem;
+    font-weight: 800;
+}
+.banner-visual small {
+    color: #45635b;
+    font-size: 1rem;
+}
+.scene-visual {
+    min-height: 190px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dce7e3;
+}
+.scene-visual span {
+    font-size: 3.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 2px 10px rgba(15, 73, 62, 0.18);
+}
+.scene-visual-1 { background: linear-gradient(135deg, #157a68, #62b49e); }
+.scene-visual-2 { background: linear-gradient(135deg, #2d5f9a, #7db7e8); }
+.scene-visual-3 { background: linear-gradient(135deg, #8a6020, #e3b562); }
+@media (max-width: 768px) {
+    .banner-visual { min-height: 150px; }
+    .banner-visual span { font-size: 1.7rem; }
+    .scene-visual { min-height: 140px; }
+}

@@ -463,8 +463,8 @@ def export_pdf(df: pd.DataFrame, stats: pd.DataFrame, gc: Union[str, List[str]],
         for p in [bf.name, hf.name]:
             try:
                 os.unlink(p)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("临时文件清理失败: %s", e, exc_info=True)
     return tf.name
 
 

@@ -1,26 +1,12 @@
 # HR Analytica
 
-HR Analytica 是一个面向人力资源与财务交叉场景的数据分析与报告工具。
+HR Analytica v2.0.3 是一个面向人力资源与财务交叉场景的数据分析与报告工具。
 
 ## 最终发布形态
 
 - 正式 Release 提供：完整功能的 Streamlit 单文件 exe
 - 源码保留：FastAPI 后端、Streamlit 前端、Electron 桌面探索版
 - Electron 版当前仅完成薪酬分析，作为架构探索保留，不作为最终发布形态
-
-## 访问码
-
-默认访问码：
-
-```text
-HR2026
-```
-
-可以通过环境变量覆盖：
-
-```powershell
-$env:HR_ANALYTICA_ACCESS_CODE="你的访问码"
-```
 
 ## 项目结构
 
@@ -40,7 +26,7 @@ desktop/
   preload.js               # 受限 IPC 桥
   renderer/                # Electron 桌面界面
 app.py                     # 完整 Streamlit 入口
-auth.py                    # 访问码登录
+> 文件格式建议：优先使用 `.xlsx`；旧版 `.xls` 的兼容性可能受运行环境影响。
 launcher.py                # Streamlit exe 启动器
 tests/
   test_analysis_engine.py  # 核心分析测试

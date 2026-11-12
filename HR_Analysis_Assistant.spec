@@ -17,7 +17,6 @@ datas = [
     (str(ROOT / "ui_components.py"), "."),
     (str(ROOT / "analysis_engine.py"), "."),
     (str(ROOT / "config.py"), "."),
-    (str(ROOT / "auth.py"), "."),
     (str(ROOT / "style.css"), "."),
     (str(ROOT / "frontend"), "frontend"),
     (str(ROOT / "backend"), "backend"),
@@ -49,7 +48,6 @@ for _pkg in (
         pass
 
 hiddenimports = [
-    "auth",
     "tkinter",
     "tkinter.ttk",
     "requests",

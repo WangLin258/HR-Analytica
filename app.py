@@ -3,7 +3,6 @@
 
 import streamlit as st
 
-from auth import require_access
 from analysis_engine import CONFIG, init_db, cleanup_old_history, load_user_pref
 from ui_components import (
     load_css,
@@ -19,7 +18,6 @@ from ui_components import (
 
 st.set_page_config(page_title="HR Analytica", layout="wide")
 load_css()
-require_access()
 try:
     init_db()
     cleanup_old_history()
